@@ -3,8 +3,7 @@
 #include <Arduino.h>
 #define I2C_SLAVE_ADDR  0x70
 uint32_t Distance = 0;
-uint32_t tempdist = 0;
-uint32_t dist_est = 0;
+
 /*
    THIS FEATURE IS SUPPORTED ONLY BY ESP32-S2 AND ESP32-C3
 */
@@ -13,11 +12,12 @@ uint32_t dist_est = 0;
 const char * WIFI_FTM_SSID = "test"; // SSID of AP that has FTM Enabled
 const char * WIFI_FTM_PASS = "passw0rded"; // STA Password
 
+
 // FTM settings
 // Number of FTM frames requested in terms of 4 or 8 bursts (allowed values - 0 (No pref), 16, 24, 32, 64)
 const uint8_t FTM_FRAME_COUNT = 16;
 // Requested time period between consecutive FTM bursts in 100’s of milliseconds (allowed values - 0 (No pref) or 2-255)
-const uint16_t FTM_BURST_PERIOD = 100;
+const uint16_t FTM_BURST_PERIOD = 2;
 
 // Semaphore to signal when FTM Report has been received
 xSemaphoreHandle ftmSemaphore;
@@ -31,17 +31,15 @@ void onFtmReport(arduino_event_t *event) {
   // Set the global report status
   ftmSuccess = report->status == FTM_STATUS_SUCCESS;
   if (ftmSuccess) {
-    tempdist = (tempdist - (dist_est / 100));
-
     // The estimated distance in meters may vary depending on some factors (see README file)
-    Serial.printf("FTM Estimate: Distance: %.2f m, tempdist, Return Time: %u ns\n", (float)report->dist_est / 100.0, report->rtt_est);
+    //Serial.printf("FTM Estimate: Distance: %.2f m, Return Time: %u ns\n", (float)report->dist_est / 100.0, report->rtt_est);
+    Distance = (float)report->dist_est;
     // Pointer to FTM Report with multiple entries, should be freed after use
     free(report->ftm_report_data);
   } else {
     Serial.print("FTM Error: ");
     Serial.println(status_str[report->status]);
   }
-
   // Signal that report is received
   xSemaphoreGive(ftmSemaphore);
 }
@@ -91,14 +89,12 @@ void setup() {
   Serial.println(" ms");
   pinMode(LED_BUILTIN, OUTPUT);
   // Request FTM reports until one fails
-  while (getFtmReport());
-  if (!getFtmReport()){
-     Serial.println("FAIL");
-  }
+
 }
 
+
 void loop() {
-  delay(1000);
-  digitalWrite(LED_BUILTIN, HIGH);
-    Distance = dist_est;
+
+  getFtmReport();
+  Serial.println(Distance);
 }
